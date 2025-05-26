@@ -575,4 +575,5 @@
         <item quantity="one">%1$s album</item>
         <item quantity="other">%1$s albums</item>
     </plurals>
+    <string name="request_content">Request Content</string>
 </resources>
