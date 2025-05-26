@@ -11,6 +11,7 @@ import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.SessionRepositoryImpl
 import org.jellyfin.androidtv.auth.store.AuthenticationPreferences
 import org.jellyfin.androidtv.auth.store.AuthenticationStore
+import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val authModule = module {
@@ -19,7 +20,7 @@ val authModule = module {
 	single { AuthenticationPreferences(get()) }
 
 	single<AuthenticationRepository> {
-		AuthenticationRepositoryImpl(get(), get(), get(), get(), get(), get(defaultDeviceInfo))
+		AuthenticationRepositoryImpl(get(), get(), get(), get(), get(), get(defaultDeviceInfo), androidContext())
 	}
 	single<ServerRepository> { ServerRepositoryImpl(get(), get()) }
 	single<ServerUserRepository> { ServerUserRepositoryImpl(get(), get()) }

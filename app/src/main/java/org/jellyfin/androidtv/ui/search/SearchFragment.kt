@@ -13,10 +13,12 @@ import androidx.core.content.getSystemService
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import androidx.leanback.app.RowsSupportFragment
+import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.databinding.FragmentSearchBinding
 import org.jellyfin.androidtv.ui.search.JellyseerrWebViewFragment
 import org.koin.android.ext.android.inject
@@ -36,6 +38,7 @@ class SearchFragment : Fragment() {
 	private val searchFragmentDelegate: SearchFragmentDelegate by inject {
 		parametersOf(requireContext())
 	}
+	private val sessionRepository: SessionRepository by inject()
 
 	override fun onCreateView(
 		inflater: LayoutInflater,
@@ -79,9 +82,19 @@ class SearchFragment : Fragment() {
 		}
 
 		binding.requestContentButton.setOnClickListener {
-			parentFragmentManager.commit {
-				replace(R.id.results_frame, JellyseerrWebViewFragment.newInstance())
-				addToBackStack(null)
+			val currentSession = sessionRepository.currentSession.value
+			if (currentSession != null) {
+				val serverId = currentSession.serverId
+				val userId = currentSession.userId
+				parentFragmentManager.commit {
+					replace(R.id.results_frame, JellyseerrWebViewFragment.newInstance(serverId, userId))
+					addToBackStack(null) // Allows user to press back to return to search results
+				}
+			} else {
+				// Optional: Show a Toast or log a message if no active session.
+				// For now, it will simply not navigate if there's no session.
+				Toast.makeText(requireContext(), "Please log in to make a request.", Toast.LENGTH_SHORT).show() // Example Toast
+				// Log.w("SearchFragment", "No active session, cannot navigate to Jellyseerr requests.")
 			}
 		}
 	}

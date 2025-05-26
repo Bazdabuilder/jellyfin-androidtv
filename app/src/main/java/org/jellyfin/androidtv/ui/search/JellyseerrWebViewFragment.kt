@@ -26,7 +26,20 @@ class JellyseerrWebViewFragment : Fragment() {
     private val jellyseerrUrl = "https://requests.jellylion.co.uk"
     // Constants for EncryptedSharedPreferences, must match those in AuthenticationRepositoryImpl
     companion object {
-        fun newInstance() = JellyseerrWebViewFragment()
+        private const val ARG_SERVER_ID = "server_id"
+        private const val ARG_USER_ID = "user_id"
+
+        fun newInstance(serverId: java.util.UUID, userId: java.util.UUID): JellyseerrWebViewFragment {
+            val fragment = JellyseerrWebViewFragment()
+            val args = Bundle().apply {
+                putSerializable(ARG_SERVER_ID, serverId)
+                putSerializable(ARG_USER_ID, userId)
+            }
+            fragment.arguments = args
+            return fragment
+        }
+
+        // Keep existing SharedPreferences constants here as well
         private const val JELLYFIN_CREDENTIALS_PREFS = "jellyfin_credentials_prefs_secure"
         private const val KEY_USERNAME_PREFIX = "username_"
         private const val KEY_PASSWORD_PREFIX = "password_"
@@ -48,6 +61,9 @@ class JellyseerrWebViewFragment : Fragment() {
         var usernameRetrieved: String? = null
         var passwordRetrieved: String? = null
 
+        val serverId = arguments?.getSerializable(ARG_SERVER_ID) as? java.util.UUID
+        val userId = arguments?.getSerializable(ARG_USER_ID) as? java.util.UUID
+
         try {
             val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
             val sharedPreferences = EncryptedSharedPreferences.create(
@@ -58,25 +74,20 @@ class JellyseerrWebViewFragment : Fragment() {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
 
-            // Placeholder for obtaining serverId and userId.
-            // These are needed to construct the actual keys for retrieving credentials.
-            // For now, auto-login will be disabled as these IDs are not available in this fragment.
-            Log.w("JellyseerrWebView", "ServerId and UserId are not available in this fragment. Auto-login to Jellyseerr is currently disabled. These IDs need to be passed to this fragment or retrieved from a shared ViewModel/session manager.")
+            if (serverId != null && userId != null) {
+                val usernameKey = "$KEY_USERNAME_PREFIX${serverId}_$userId"
+                val passwordKey = "$KEY_PASSWORD_PREFIX${serverId}_$userId"
+                usernameRetrieved = sharedPreferences.getString(usernameKey, null)
+                passwordRetrieved = sharedPreferences.getString(passwordKey, null)
 
-            // Example of how it would work if serverId and userId were available:
-            // val currentServerId: UUID? = ... // Obtain current server ID
-            // val currentUserId: UUID? = ...   // Obtain current user ID
-            // if (currentServerId != null && currentUserId != null) {
-            //     val usernameKey = "$KEY_USERNAME_PREFIX${currentServerId}_$currentUserId"
-            //     val passwordKey = "$KEY_PASSWORD_PREFIX${currentServerId}_$currentUserId"
-            //     usernameRetrieved = sharedPreferences.getString(usernameKey, null)
-            //     passwordRetrieved = sharedPreferences.getString(passwordKey, null)
-            //     if (usernameRetrieved != null && passwordRetrieved != null) {
-            //         Log.d("JellyseerrWebView", "Successfully retrieved stored credentials.")
-            //     } else {
-            //         Log.d("JellyseerrWebView", "No stored credentials found for the current user/server.")
-            //     }
-            // }
+                if (usernameRetrieved != null && passwordRetrieved != null) {
+                    Log.d("JellyseerrWebView", "Successfully retrieved stored credentials for user $userId on server $serverId.")
+                } else {
+                    Log.d("JellyseerrWebView", "No stored credentials found for user $userId on server $serverId.")
+                }
+            } else {
+                Log.w("JellyseerrWebView", "ServerId or UserId not provided in arguments. Cannot retrieve credentials for auto-login.")
+            }
 
         } catch (e: Exception) {
             Log.e("JellyseerrWebView", "Error initializing or using EncryptedSharedPreferences: ", e)
