@@ -111,9 +111,9 @@ class JellyseerrWebViewFragment : Fragment() {
                     if (url != null && url.contains("login", ignoreCase = true) && usernameRetrieved != null && passwordRetrieved != null) {
                         val jsScript = """
                             (function() {
-                                let usernameField = document.getElementById('username') || document.getElementById('email') || document.querySelector('input[type="text"]') || document.querySelector('input[name*="user"]');
-                                let passwordField = document.getElementById('password') || document.querySelector('input[type="password"]') || document.querySelector('input[name*="pass"]');
-                                let loginButton = document.querySelector('button[type="submit"]') || document.querySelector('input[type="submit"]');
+                                let usernameField = document.querySelector('input[name="username"]');
+                                let passwordField = document.getElementById('password');
+                                let loginButton = document.querySelector('button[type="submit"]');
 
                                 if (usernameField && passwordField) {
                                     usernameField.value = '${usernameRetrieved!!.replace("'", "\\'")}';
@@ -121,12 +121,12 @@ class JellyseerrWebViewFragment : Fragment() {
                                     
                                     if (loginButton) {
                                         loginButton.click();
-                                    } else if (usernameField.form) {
+                                    } else if (usernameField.form) { // Fallback if button not easily found
                                         usernameField.form.submit();
                                     }
-                                    return "Login attempt submitted.";
+                                    return "Login attempt submitted with updated selectors.";
                                 }
-                                return "Username or password field not found.";
+                                return "Username or password field not found with updated selectors.";
                             })();
                         """.trimIndent()
 
