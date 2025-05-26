@@ -35,6 +35,9 @@ import org.jellyfin.sdk.api.client.extensions.authenticateWithQuickConnect
 import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.model.DeviceInfo
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import org.jellyfin.sdk.model.api.AuthenticationResult
 import org.jellyfin.sdk.model.api.UserDto
 import timber.log.Timber
@@ -56,7 +59,14 @@ class AuthenticationRepositoryImpl(
 	private val userApiClient: ApiClient,
 	private val authenticationPreferences: AuthenticationPreferences,
 	private val defaultDeviceInfo: DeviceInfo,
+	private val context: Context,
 ) : AuthenticationRepository {
+	companion object {
+		private const val JELLYFIN_CREDENTIALS_PREFS = "jellyfin_credentials_prefs_secure"
+		private const val KEY_USERNAME_PREFIX = "username_"
+		private const val KEY_PASSWORD_PREFIX = "password_"
+	}
+
 	override fun authenticate(server: Server, method: AuthenticateMethod): Flow<LoginState> {
 		// Check server version first
 		if (!server.versionSupported) return flowOf(ServerVersionNotSupported(server))
@@ -94,6 +104,35 @@ class AuthenticationRepositoryImpl(
 			Timber.e(err, "Unable to sign in as $username")
 			emit(ApiClientErrorLoginState(err))
 			return@flow
+		}
+
+		// Save credentials securely
+		try {
+			val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+			val sharedPreferences = EncryptedSharedPreferences.create(
+				context,
+				JELLYFIN_CREDENTIALS_PREFS,
+				masterKeyAlias,
+				EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+				EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+			)
+
+			val userId = result.user?.id ?: return@flow emit(RequireSignInState)
+			val serverId = server.id
+
+			val usernameKey = "$KEY_USERNAME_PREFIX${serverId}_$userId"
+			val passwordKey = "$KEY_PASSWORD_PREFIX${serverId}_$userId"
+
+			with(sharedPreferences.edit()) {
+				putString(usernameKey, username)
+				putString(passwordKey, password)
+				apply()
+			}
+			Timber.d("Saved credentials securely for user $userId on server $serverId")
+
+		} catch (e: Exception) {
+			Timber.e(e, "Failed to save credentials securely.")
+			// For now, just log the error. The login to Jellyfin itself was successful.
 		}
 
 		emitAll(authenticateAuthenticationResult(server, result))

@@ -16,7 +16,9 @@ import androidx.leanback.app.RowsSupportFragment
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.databinding.FragmentSearchBinding
+import org.jellyfin.androidtv.ui.search.JellyseerrWebViewFragment
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
@@ -74,6 +76,13 @@ class SearchFragment : Fragment() {
 			binding.resultsFrame.requestFocus()
 		} else {
 			binding.searchBar.requestFocus()
+		}
+
+		binding.requestContentButton.setOnClickListener {
+			parentFragmentManager.commit {
+				replace(R.id.results_frame, JellyseerrWebViewFragment.newInstance())
+				addToBackStack(null)
+			}
 		}
 	}
 

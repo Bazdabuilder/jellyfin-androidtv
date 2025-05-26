@@ -11,11 +11,12 @@ import android.webkit.WebViewClient
 import androidx.fragment.app.Fragment
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.databinding.FragmentJellyseerrWebviewBinding
-// Import for EncryptedSharedPreferences (actual import path might vary based on library used)
-// import androidx.security.crypto.EncryptedSharedPreferences
-// import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import android.content.Context
 import android.util.Log
+// Note: AuthenticationRepositoryImpl is not directly used here for imports,
+// but constants are duplicated for clarity as per instruction.
 
 class JellyseerrWebViewFragment : Fragment() {
 
@@ -23,9 +24,13 @@ class JellyseerrWebViewFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val jellyseerrUrl = "https://requests.jellylion.co.uk"
-    private val JELLYFIN_CREDENTIALS_PREFS = "jellyfin_credentials_prefs" // For EncryptedSharedPreferences
-    private val KEY_USERNAME = "username"
-    private val KEY_PASSWORD = "password"
+    // Constants for EncryptedSharedPreferences, must match those in AuthenticationRepositoryImpl
+    companion object {
+        fun newInstance() = JellyseerrWebViewFragment()
+        private const val JELLYFIN_CREDENTIALS_PREFS = "jellyfin_credentials_prefs_secure"
+        private const val KEY_USERNAME_PREFIX = "username_"
+        private const val KEY_PASSWORD_PREFIX = "password_"
+    }
 
 
     override fun onCreateView(
@@ -40,37 +45,59 @@ class JellyseerrWebViewFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Retrieve stored credentials (using EncryptedSharedPreferences example)
-        // Note: Actual implementation of credential retrieval will depend on Step 1's final outcome.
-        // This is a placeholder to illustrate where it fits.
-        val sharedPreferences = try {
-            requireContext().getSharedPreferences(JELLYFIN_CREDENTIALS_PREFS, Context.MODE_PRIVATE)
-        } catch (e: Exception) {
-            Log.e("JellyseerrWebView", "Error getting SharedPreferences: ", e)
-            null
-        }
+        var usernameRetrieved: String? = null
+        var passwordRetrieved: String? = null
 
-        val username = sharedPreferences?.getString(KEY_USERNAME, null)
-        val password = sharedPreferences?.getString(KEY_PASSWORD, null)
+        try {
+            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            val sharedPreferences = EncryptedSharedPreferences.create(
+                requireContext(),
+                JELLYFIN_CREDENTIALS_PREFS,
+                masterKeyAlias,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+
+            // Placeholder for obtaining serverId and userId.
+            // These are needed to construct the actual keys for retrieving credentials.
+            // For now, auto-login will be disabled as these IDs are not available in this fragment.
+            Log.w("JellyseerrWebView", "ServerId and UserId are not available in this fragment. Auto-login to Jellyseerr is currently disabled. These IDs need to be passed to this fragment or retrieved from a shared ViewModel/session manager.")
+
+            // Example of how it would work if serverId and userId were available:
+            // val currentServerId: UUID? = ... // Obtain current server ID
+            // val currentUserId: UUID? = ...   // Obtain current user ID
+            // if (currentServerId != null && currentUserId != null) {
+            //     val usernameKey = "$KEY_USERNAME_PREFIX${currentServerId}_$currentUserId"
+            //     val passwordKey = "$KEY_PASSWORD_PREFIX${currentServerId}_$currentUserId"
+            //     usernameRetrieved = sharedPreferences.getString(usernameKey, null)
+            //     passwordRetrieved = sharedPreferences.getString(passwordKey, null)
+            //     if (usernameRetrieved != null && passwordRetrieved != null) {
+            //         Log.d("JellyseerrWebView", "Successfully retrieved stored credentials.")
+            //     } else {
+            //         Log.d("JellyseerrWebView", "No stored credentials found for the current user/server.")
+            //     }
+            // }
+
+        } catch (e: Exception) {
+            Log.e("JellyseerrWebView", "Error initializing or using EncryptedSharedPreferences: ", e)
+        }
 
         binding.jellyseerrWebview.apply {
             settings.javaScriptEnabled = true
-            // For debugging WebView content if needed (requires enabling in WebView settings)
-            // WebView.setWebContentsDebuggingEnabled(true) 
+            // For debugging WebView content if needed
+            // WebView.setWebContentsDebuggingEnabled(true)
 
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                     super.onPageStarted(view, url, favicon)
-                    // Show loading indicator if desired
+                    // Show loading indicator
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     // Hide loading indicator
 
-                    if (url != null && url.contains("login", ignoreCase = true) && username != null && password != null) {
-                        // The JavaScript selectors (getElementById, querySelector) and form submission logic
-                        // are generic examples and MUST be verified against the actual Jellyseerr login page HTML structure.
+                    if (url != null && url.contains("login", ignoreCase = true) && usernameRetrieved != null && passwordRetrieved != null) {
                         val jsScript = """
                             (function() {
                                 let usernameField = document.getElementById('username') || document.getElementById('email') || document.querySelector('input[type="text"]') || document.querySelector('input[name*="user"]');
@@ -78,8 +105,8 @@ class JellyseerrWebViewFragment : Fragment() {
                                 let loginButton = document.querySelector('button[type="submit"]') || document.querySelector('input[type="submit"]');
 
                                 if (usernameField && passwordField) {
-                                    usernameField.value = '${username.replace("'", "\\'")}';
-                                    passwordField.value = '${password.replace("'", "\\'")}';
+                                    usernameField.value = '${usernameRetrieved!!.replace("'", "\\'")}';
+                                    passwordField.value = '${passwordRetrieved!!.replace("'", "\\'")}';
                                     
                                     if (loginButton) {
                                         loginButton.click();
@@ -116,9 +143,5 @@ class JellyseerrWebViewFragment : Fragment() {
         super.onDestroyView()
         binding.jellyseerrWebview.destroy()
         _binding = null
-    }
-
-    companion object {
-        fun newInstance() = JellyseerrWebViewFragment()
     }
 }
